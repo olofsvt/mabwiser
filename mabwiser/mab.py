@@ -29,6 +29,7 @@ from mabwiser.softmax import _Softmax
 from mabwiser.thompson import _ThompsonSampling
 from mabwiser.treebandit import _TreeBandit
 from mabwiser.ucb import _UCB1
+from mabwiser.xgboost import _XGBMab
 from mabwiser.utils import Arm, Constants, Num, check_false, check_true, create_rng
 
 __author__ = __author__
@@ -415,6 +416,17 @@ class LearningPolicy(NamedTuple):
         def _validate(self):
             check_true(isinstance(self.alpha, (int, float)), TypeError("Alpha must be an integer or float."))
             check_true(0 <= self.alpha, ValueError("The value of alpha cannot be negative."))
+    class XGBoost(NamedTuple):
+        """XGBoost learning policy.
+
+        Trains a single model using XGBoost to predict the best arm based on the context.
+
+        Example
+        -------
+        """
+
+        def _validate(self):
+            pass
 
 
 class NeighborhoodPolicy(NamedTuple):
@@ -676,7 +688,8 @@ LearningPolicyType = NewType('LearningPolicyType', Union[LearningPolicy.EpsilonG
                                                          LearningPolicy.UCB1,
                                                          LearningPolicy.LinGreedy,
                                                          LearningPolicy.LinTS,
-                                                         LearningPolicy.LinUCB])
+                                                         LearningPolicy.LinUCB,
+                                                         LearningPolicy.XGBoost])
 
 
 # NeighborhoodPolicyType is the Union of all possible neighborhood policies
@@ -874,6 +887,8 @@ class MAB:
         elif isinstance(learning_policy, LearningPolicy.LinUCB):
             lp = _Linear(self._rng, self.arms, self.n_jobs, self.backend, learning_policy.alpha, 0,
                          learning_policy.l2_lambda, "ucb", learning_policy.scale)
+        elif isinstance(learning_policy, LearningPolicy.XGBoost):
+            lp = _XGBMab(self._rng, self.arms, self.n_jobs, self.backend)
         else:
             check_true(False, ValueError("Undefined learning policy " + str(learning_policy)))
 
