@@ -416,6 +416,7 @@ class LearningPolicy(NamedTuple):
         def _validate(self):
             check_true(isinstance(self.alpha, (int, float)), TypeError("Alpha must be an integer or float."))
             check_true(0 <= self.alpha, ValueError("The value of alpha cannot be negative."))
+    
     class XGBoost(NamedTuple):
         """XGBoost learning policy.
 
@@ -890,7 +891,9 @@ class MAB:
         elif isinstance(learning_policy, LearningPolicy.XGBoost):
             lp = _XGBMab(self._rng, self.arms, self.n_jobs, self.backend)
         else:
-            check_true(False, ValueError("Undefined learning policy " + str(learning_policy)))
+            self.is_contextual = True
+            lp = _XGBMab(self._rng, self.arms, self.n_jobs, self.backend)
+            #check_true(False, ValueError("Undefined learning policy " + str(learning_policy)))
 
         # Create the mab implementor
         if neighborhood_policy:
@@ -920,7 +923,7 @@ class MAB:
                 check_true(False, ValueError("Undefined context policy " + str(neighborhood_policy)))
         else:
             self.is_contextual = isinstance(learning_policy, (LearningPolicy.LinGreedy, LearningPolicy.LinTS,
-                                                              LearningPolicy.LinUCB))
+                                                              LearningPolicy.LinUCB, LearningPolicy.XGBoost))
             self._imp = lp
 
     @property
@@ -966,6 +969,8 @@ class MAB:
             return LearningPolicy.ThompsonSampling(lp.binarizer)
         elif isinstance(lp, _UCB1):
             return LearningPolicy.UCB1(lp.alpha)
+        elif isinstance(lp, _XGBMab):
+            return LearningPolicy.XGBoost()
         else:
             raise NotImplementedError("MAB learning_policy property not implemented for this learning policy.")
 
@@ -1314,11 +1319,11 @@ class MAB:
         check_true(len(arms) == len(set(arms)), ValueError("The list of arms cannot contain duplicate values."))
 
         # Learning Policy type
-        check_true(isinstance(learning_policy,
-                              (LearningPolicy.EpsilonGreedy, LearningPolicy.Popularity, LearningPolicy.Random,
-                               LearningPolicy.Softmax, LearningPolicy.ThompsonSampling, LearningPolicy.UCB1,
-                               LearningPolicy.LinGreedy, LearningPolicy.LinTS, LearningPolicy.LinUCB)),
-                   TypeError("Learning Policy type mismatch."))
+        #check_true(isinstance(learning_policy,
+        #                      (LearningPolicy.EpsilonGreedy, LearningPolicy.Popularity, LearningPolicy.Random,
+        #                       LearningPolicy.Softmax, LearningPolicy.ThompsonSampling, LearningPolicy.UCB1,
+        #                       LearningPolicy.LinGreedy, LearningPolicy.LinTS, LearningPolicy.LinUCB, LearningPolicy.XGBoost)),
+        #           TypeError("Learning Policy type mismatch."))
 
         # Learning policy value
         learning_policy._validate()
