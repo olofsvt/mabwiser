@@ -1,4 +1,4 @@
-from typing import Dict, List, Union, Optional, NoReturn, NamedTuple
+from typing import Callable, Dict, List, Union, Optional, NoReturn, NamedTuple
 from mabwiser.utils import argmax, Arm, Num, _BaseRNG
 from mabwiser.base_mab import BaseMAB
 from sklearn.calibration import LabelEncoder
@@ -13,7 +13,6 @@ class _XGBMab(BaseMAB):
         self.label_encoder = LabelEncoder()
         self.arms = arms
         self._is_initial_fit = False
-    
 
     def fit(self, decisions: np.ndarray, rewards: np.ndarray, contexts: np.ndarray = None) -> NoReturn:
         
@@ -30,11 +29,17 @@ class _XGBMab(BaseMAB):
         y_train = positive_decisions[train_indices]
         X_train = positive_contexts[train_indices]
 
-        mask = np.ones(len(positive_decisions), np.bool)
+        print("X_train shape: ", X_train.shape)
+
+        mask = np.ones(len(positive_decisions), bool)
         mask[train_indices] = 0
+        mask[np.isin(mask, np.unique(y_train))] = 0
 
         y_test = positive_decisions[mask]
         X_test = positive_contexts[mask]
+
+
+        print("X_test shape: ", X_test.shape)
 
         evalset = [(X_train, y_train), (X_test,y_test)]
 
@@ -57,18 +62,16 @@ class _XGBMab(BaseMAB):
             return [argmax(exp) for exp in expectations]
 
     def predict_expectations(self, contexts: Optional[np.ndarray] = None) -> Union[Dict[Arm, Num], List[Dict[Arm, Num]]]:
-        probabilities = self.xgb_model.predict_proba(contexts[0])
+        probabilities = self.xgb_model.predict_proba(contexts)
+        predictions = []
+        for probability in probabilities:
 
-        # Sort the probabilities and class labels in descending order of probability
-        sorted_indices = np.argsort(-probabilities, axis=1)
+            ## TODO also do explore! here
 
-        original_class_labels = self.label_encoder.inverse_transform(self.xgb_model.classes_)
-        sorted_original_labels = original_class_labels[sorted_indices].tolist()
-        sorted_probabilities = np.take_along_axis(probabilities, sorted_indices, axis=1).tolist()
-
-        ## TODO also do explore! here
+            predictions.append({ self.label_encoder.inverse_transform([i])[0]: score for i, score in enumerate(probability) })
         
-        return { arm: score for (arm, score) in zip(sorted_original_labels, sorted_probabilities) }
+        print("Predictions: ", predictions)
+        return predictions
         
 
     def _fit_arm(self, arm: Arm, decisions: np.ndarray, rewards: np.ndarray, contexts: Optional[np.ndarray] = None):
@@ -77,6 +80,15 @@ class _XGBMab(BaseMAB):
     def _predict_contexts(self, contexts: np.ndarray, is_predict: bool,
                           seeds: Optional[np.ndarray] = None, start_index: Optional[int] = None) -> List:
         pass
-
-    def is_contextual(self):
-        return True
+    
+    def _copy_arms(self, cold_arm_to_warm_arm: Dict[Arm, Arm]) -> None:
+        pass
+    
+    def _drop_existing_arm(self, arm: Arm):
+        pass
+        
+    def _uptake_new_arm(self, arm: Arm, binarizer: Callable = None) -> None:
+        pass
+        
+    def warm_start(self, arm_to_features: Dict[Arm, List[Num]], distance_quantile: float) -> None:
+        pass
